@@ -13,15 +13,22 @@ Tested on OS X with "Docker for Mac".
 
 ## Install
 
-Install via pip:
+1. Install via pip:
 `pip install docker-push-ssh`
+
+2. Add `localhost:5000` to your docker client's insecure registries (requires restart of docker):
+[https://stackoverflow.com/questions/32808215/where-to-set-the-insecure-registry-flag-on-mac-os]([OS X] How to Add Insecure Registry)
+[https://stackoverflow.com/questions/42211380/add-insecure-registry-to-docker]([Linux] How to Add Insecure Registry)
+
+Adding `localhost:5000` to your client's insecure registries is inconvenient but a side-effect of docker's design.
+It only needs to be done once from each machine using `docker-push-ssh`. This allows the tool to push through the ssh
+tunnel at `localhost:5000` to the temporary registry on your remote host, without needing ssl certificates for your server.
 
 ## Usage:
 
 ```bash
 $ docker-push-ssh --help
-usage: docker-push-ssh [-h] [-i SSH_IDENTITY_FILE] [-p SSH_PORT] [-l LOCAL_IP]
-              ssh_host docker_image
+usage: docker-push-ssh [-h] [-i SSH_IDENTITY_FILE] [-p SSH_PORT] ssh_host docker_image
 
 A utility to securely push a docker image from your local host to a remote
 host over ssh without using docker save/load or needing to setup a private
@@ -40,11 +47,6 @@ optional arguments:
   -p SSH_PORT, --ssh-port SSH_PORT
                         [optional] Port on ssh host to connect to. (Default is
                         22)
-  -l LOCAL_IP, --local-ip LOCAL_IP
-                        [optional] Ip Address of your local host. Important
-                        for systems where docker is run inside a VM (mac,
-                        windows). If not provided, a best effort is used to
-                        obtain it.
 ```
 
 ## Examples
@@ -68,4 +70,3 @@ Now the `testimage` will be present on your server.
 ## Caveats
 
 1. SSH password authentication is not supported. Only key files.
-2. If you're using any proxy, you'll need to specify `--local-ip` because it probably won't be inferred correctly.

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse, os
+
+import time
+
 from command import Command
 
 
@@ -27,12 +30,14 @@ def getLocalIp():
     return localIp
 
 
-def pushImage(dockerImageName, sshHost, sshIdentityFile, sshPort, localIp):
+def pushImage(dockerImageName, sshHost, sshIdentityFile, sshPort):
     # Setup remote docker registry
     print("Setting up secure private registry... ")
     registryCommandResult = Command("ssh", [
         "-i", sshIdentityFile,
         "-p", sshPort,
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
         sshHost,
         "docker run -d -v /etc/docker-push-ssh/registry:/var/lib/registry "
         "--name docker-push-ssh-registry -p 127.0.0.1:5000:5000 registry"
@@ -44,42 +49,71 @@ def pushImage(dockerImageName, sshHost, sshIdentityFile, sshPort, localIp):
         print(registryCommandResult.stderr)
         return
 
-    print("Establishing SSH Tunnel...")
-    # Establish ssh tunnel
-    sshTunnelCommandResult = Command("ssh", [
-        "-N",
-        "-L", localIp + ":5000:localhost:5000",
-        "-i", sshIdentityFile,
-        sshHost
-    ]).execute(waitForExit=False)
-
     try:
+        print("Establishing SSH Tunnel...")
+        # Establish ssh tunnel
+
+        sshTunnelCommandResult = Command("docker", [
+            "run", "-d",
+            "--name", "docker-push-ssh-tunnel",
+            "-p", "127.0.0.1:5000:5000",
+            "-v", "{0}:/etc/ssh_key_file".format(sshIdentityFile),
+            "brthornbury/docker-alpine-ssh",
+            "ssh",
+            "-N",
+            "-L", "*:5000:localhost:5000",
+            "-i", "/etc/ssh_key_file",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            sshHost
+        ]).environment_dict(os.environ).execute()
+
+        print("Waiting for SSH Tunnel Initialization...")
+
+        time.sleep(4)
+
+        if sshTunnelCommandResult.failed():
+            print("ERROR")
+            print(sshTunnelCommandResult.stdout)
+            print(sshTunnelCommandResult.stderr)
+            return
+
         print("Tagging image for push...")
-        Command("docker", [
+        tagCommandResult = Command("docker", [
             "tag",
             dockerImageName,
-            localIp + ":5000/" + dockerImageName
+            "localhost:5000/" + dockerImageName
         ]).environment_dict(os.environ).execute()
+
+        if tagCommandResult.failed():
+            print("ERROR")
+            print(tagCommandResult.stdout)
+            print(tagCommandResult.stderr)
+            return
 
         print("Pushing Image from local host...")
         pushDockerImageCommandResult = Command("docker", [
             "push",
-            localIp + ":5000/" + dockerImageName
+            "localhost:5000/" + dockerImageName
         ]).environment_dict(os.environ).execute()
 
         if pushDockerImageCommandResult.failed():
-            print("Error Pushing Image: Ensure " + localIp + ":5000 is added to your insecure registries.")
-            print("More Details (OS X): "
-                  "https://stackoverflow.com/questions/32808215/where-to-set-the-insecure-registry-flag-on-mac-os")
+            print("ERROR")
 
             print(pushDockerImageCommandResult.stdout)
             print(pushDockerImageCommandResult.stderr)
+
+            print("Error Pushing Image: Ensure localhost:5000 is added to your insecure registries.")
+            print("More Details (OS X): "
+                  "https://stackoverflow.com/questions/32808215/where-to-set-the-insecure-registry-flag-on-mac-os")
             return
 
         print("Pulling and Retagging Image on remote host...")
         pullDockerImageCommandResult = Command("ssh", [
             "-i", sshIdentityFile,
             "-p", sshPort,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
             sshHost,
             "docker pull " + "localhost:5000/" + dockerImageName +
             " && docker tag localhost:5000/" + dockerImageName + " " + dockerImageName
@@ -96,17 +130,19 @@ def pushImage(dockerImageName, sshHost, sshIdentityFile, sshPort, localIp):
         Command("ssh", [
             "-i", sshIdentityFile,
             "-p", sshPort,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
             sshHost,
             "docker rm -f docker-push-ssh-registry"
         ]).execute()
 
-        Command("kill", [
-            str(sshTunnelCommandResult.pid)
-        ]).execute()
+        Command("docker", [
+            "rm", "-f", "docker-push-ssh-tunnel"
+        ]).environment_dict(os.environ).execute()
 
         Command("docker", [
             "image", "rm",
-            localIp + ":5000/" + dockerImageName
+            "localhost:5000/" + dockerImageName
         ]).environment_dict(os.environ).execute()
 
 
@@ -125,18 +161,15 @@ def main():
 
     parser.add_argument("-p", "--ssh-port", type=str, help="[optional] Port on ssh host to connect to. (Default is 22)", default="22")
 
-    parser.add_argument("-l", "--local-ip", type=str, help="[optional] Ip Address of your local host. Important for systems where "
-                                                           "docker is run inside a VM (mac, windows). "
-                                                           "If not provided, a best effort is used to obtain it.")
-
     args = parser.parse_args()
 
     assert args.ssh_identity_file is not None
 
-    localIp = args.local_ip or getLocalIp()
-    print("[REQUIRED] Ensure " + localIp + ":5000 is added to your insecure registries.")
+    sshIdentityFileAbsolutePath = os.path.abspath(os.path.expanduser(args.ssh_identity_file))
 
-    pushImage(args.docker_image, args.ssh_host, args.ssh_identity_file, args.ssh_port, localIp)
+    print("[REQUIRED] Ensure localhost:5000 is added to your insecure registries.")
+
+    pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, args.ssh_port)
 
 
 if __name__ == "__main__":
