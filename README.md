@@ -17,8 +17,11 @@ Tested on OS X with "Docker for Mac".
 `pip install docker-push-ssh`
 
 2. Add `localhost:5000` to your docker client's insecure registries (requires restart of docker):
-[https://stackoverflow.com/questions/32808215/where-to-set-the-insecure-registry-flag-on-mac-os]([OS X] How to Add Insecure Registry)
-[https://stackoverflow.com/questions/42211380/add-insecure-registry-to-docker]([Linux] How to Add Insecure Registry)
+
+[[OS X] How to Add Insecure Registry](https://stackoverflow.com/questions/32808215/where-to-set-the-insecure-registry-flag-on-mac-os)
+
+[[Linux] How to Add Insecure Registry](https://stackoverflow.com/questions/42211380/add-insecure-registry-to-docker)
+
 
 Adding `localhost:5000` to your client's insecure registries is inconvenient but a side-effect of docker's design.
 It only needs to be done once from each machine using `docker-push-ssh`. This allows the tool to push through the ssh
