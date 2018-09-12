@@ -115,9 +115,9 @@ def main():
                                                  "remote host over ssh without using docker save/load or needing to "
                                                  "setup a private registry.")
 
-    parser.add_argument("docker_image", help="Docker image name to push.")
-
     parser.add_argument("ssh_host", help="Host to push docker image to. (ex. username@myhost.com)")
+
+    parser.add_argument("docker_image", help="Docker image name to push.")
 
     parser.add_argument("-i", "--ssh-identity-file", type=str,
                         help="[required] Path to the ssh identity file on your local host. "
