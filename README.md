@@ -1,4 +1,6 @@
 # docker-push-ssh
+[![PyPI version](https://badge.fury.io/py/docker-push-ssh.svg)](https://pypi.org/project/docker-push-ssh)
+
 Push docker images from your local machine to remote servers without the hassle.
 
 ## Overview
