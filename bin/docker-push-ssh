@@ -1,4 +1,4 @@
 #!/usr/bin/env python
 
-from docker-push-ssh import cli
+from docker_push_ssh import cli
 cli.main()

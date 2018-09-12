@@ -1,5 +1,9 @@
-docker-push-venv/
+venv/
 .idea/
+build/
 
 .DS_Store
 *.pyc
+*.egg-info
+
+dist/
