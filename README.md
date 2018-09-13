@@ -1,5 +1,6 @@
 # docker-push-ssh
 [![PyPI version](https://badge.fury.io/py/docker-push-ssh.svg)](https://pypi.org/project/docker-push-ssh)
+[![Build Status](https://travis-ci.org/coherenceapi/docker-push-ssh.svg?branch=master)](https://travis-ci.org/coherenceapi/docker-push-ssh)
 
 Push docker images from your local machine to remote servers without the hassle.
 
@@ -31,7 +32,8 @@ tunnel at `localhost:5000` to the temporary registry on your remote host, withou
 
 ```bash
 $ docker-push-ssh --help
-usage: docker-push-ssh [-h] [-i SSH_IDENTITY_FILE] [-p SSH_PORT] ssh_host docker_image
+usage: docker-push-ssh [-h] [-i SSH_IDENTITY_FILE] [-p SSH_PORT]
+              ssh_host docker_image [docker_image ...]
 
 A utility to securely push a docker image from your local host to a remote
 host over ssh without using docker save/load or needing to setup a private
@@ -40,7 +42,8 @@ registry.
 positional arguments:
   ssh_host              Host to push docker image to. (ex.
                         username@myhost.com)
-  docker_image          Docker image name to push.
+  docker_image          Docker image tag(s) to push. Specify one or more
+                        separated by spaces.
 
 optional arguments:
   -h, --help            show this help message and exit
