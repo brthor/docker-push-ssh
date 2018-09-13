@@ -11,9 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import argparse, os
-
+import argparse
+import os
+import socket
+import sys
 import time
+import urllib2
 
 from command import Command
 
@@ -30,7 +33,22 @@ def getLocalIp():
     return localIp
 
 
-def pushImage(dockerImageName, sshHost, sshIdentityFile, sshPort):
+def waitForSshTunnelInit(retries=20, delay=1.0):
+    for _ in range(retries):
+        time.sleep(delay)
+
+        try:
+            response = urllib2.urlopen("http://localhost:5000/v2/", timeout=5)
+        except (socket.error, urllib2.URLError):
+            continue
+
+        if response.getcode() == 200:
+            return True
+
+    return False
+
+
+def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort):
     # Setup remote docker registry
     print("Setting up secure private registry... ")
     registryCommandResult = Command("ssh", [
@@ -39,19 +57,19 @@ def pushImage(dockerImageName, sshHost, sshIdentityFile, sshPort):
         "-o", "StrictHostKeyChecking=no",
         "-o", "UserKnownHostsFile=/dev/null",
         sshHost,
-        "docker run -d -v /etc/docker-push-ssh/registry:/var/lib/registry "
-        "--name docker-push-ssh-registry -p 127.0.0.1:5000:5000 registry"
+        "sh -l -c \"docker run -d -v /etc/docker-push-ssh/registry:/var/lib/registry " +
+        "--name docker-push-ssh-registry -p 127.0.0.1:5000:5000 registry\""
     ]).execute()
 
     if registryCommandResult.failed():
         print("ERROR")
         print(registryCommandResult.stdout)
         print(registryCommandResult.stderr)
-        return
+        return False
 
     try:
-        print("Establishing SSH Tunnel...")
         # Establish ssh tunnel
+        print("Establishing SSH Tunnel...")
 
         sshTunnelCommandResult = Command("docker", [
             "run", "-d",
@@ -65,65 +83,85 @@ def pushImage(dockerImageName, sshHost, sshIdentityFile, sshPort):
             "-i", "/etc/ssh_key_file",
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
+            "-p", sshPort,
             sshHost
         ]).environment_dict(os.environ).execute()
-
-        print("Waiting for SSH Tunnel Initialization...")
-
-        time.sleep(4)
 
         if sshTunnelCommandResult.failed():
             print("ERROR")
             print(sshTunnelCommandResult.stdout)
             print(sshTunnelCommandResult.stderr)
-            return
+            return False
 
-        print("Tagging image for push...")
-        tagCommandResult = Command("docker", [
-            "tag",
-            dockerImageName,
-            "localhost:5000/" + dockerImageName
-        ]).environment_dict(os.environ).execute()
+        print("Waiting for SSH Tunnel Initialization...")
 
-        if tagCommandResult.failed():
+        if not waitForSshTunnelInit():
             print("ERROR")
-            print(tagCommandResult.stdout)
-            print(tagCommandResult.stderr)
-            return
+            print("SSH Tunnel failed to initialize.")
 
-        print("Pushing Image from local host...")
-        pushDockerImageCommandResult = Command("docker", [
-            "push",
-            "localhost:5000/" + dockerImageName
-        ]).environment_dict(os.environ).execute()
+            logsCmd = Command("docker", ["logs", "docker-push-ssh-tunnel"]).environment_dict(os.environ).execute()
+            print(logsCmd.stdout, logsCmd.stderr)
+            return False
 
-        if pushDockerImageCommandResult.failed():
+        if sshTunnelCommandResult.failed():
             print("ERROR")
+            print(sshTunnelCommandResult.stdout)
+            print(sshTunnelCommandResult.stderr)
+            return False
 
-            print(pushDockerImageCommandResult.stdout)
-            print(pushDockerImageCommandResult.stderr)
+        print("Tagging image(s) for push...")
+        for dockerImageTag in dockerImageTagList:
+            tagCommandResult = Command("docker", [
+                "tag",
+                dockerImageTag,
+                "localhost:5000/{0}".format(dockerImageTag)
+            ]).environment_dict(os.environ).execute()
 
-            print("Error Pushing Image: Ensure localhost:5000 is added to your insecure registries.")
-            print("More Details (OS X): "
-                  "https://stackoverflow.com/questions/32808215/where-to-set-the-insecure-registry-flag-on-mac-os")
-            return
+            if tagCommandResult.failed():
+                print("ERROR")
+                print(tagCommandResult.stdout)
+                print(tagCommandResult.stderr)
+                return False
+
+        print("Pushing Image(s) from local host...")
+        for dockerImageTag in dockerImageTagList:
+            pushDockerImageCommandResult = Command("docker", [
+                "push",
+                "localhost:5000/{0}".format(dockerImageTag)
+            ]).environment_dict(os.environ).execute()
+
+            if pushDockerImageCommandResult.failed():
+                print("ERROR")
+
+                print(pushDockerImageCommandResult.stdout)
+                print(pushDockerImageCommandResult.stderr)
+
+                print("Error Pushing Image: Ensure localhost:5000 is added to your insecure registries.")
+                print("More Details (OS X): "
+                      "https://stackoverflow.com/questions/32808215/where-to-set-the-insecure-registry-flag-on-mac-os")
+                return False
+
+            print("Pushed Image {0} Successfully...".format(dockerImageTag))
 
         print("Pulling and Retagging Image on remote host...")
-        pullDockerImageCommandResult = Command("ssh", [
-            "-i", sshIdentityFile,
-            "-p", sshPort,
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null",
-            sshHost,
-            "docker pull " + "localhost:5000/" + dockerImageName +
-            " && docker tag localhost:5000/" + dockerImageName + " " + dockerImageName
-        ]).execute()
+        for dockerImageTag in dockerImageTagList:
+            pullDockerImageCommandResult = Command("ssh", [
+                "-i", sshIdentityFile,
+                "-p", sshPort,
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "UserKnownHostsFile=/dev/null",
+                sshHost,
+                "sh -l -c \"docker pull " + "localhost:5000/{0}".format(dockerImageTag) +
+                " && docker tag localhost:5000/{0} {0}\"".format(dockerImageTag)
+            ]).execute()
 
-        if pullDockerImageCommandResult.failed():
-            print("ERROR")
-            print(pullDockerImageCommandResult.stdout)
-            print(pullDockerImageCommandResult.stderr)
-            return
+            if pullDockerImageCommandResult.failed():
+                print("ERROR")
+                print(pullDockerImageCommandResult.stdout)
+                print(pullDockerImageCommandResult.stderr)
+                return False
+
+            print("Pulled Image {0} Successfully...".format(dockerImageTag))
 
     finally:
         print("Cleaning up...")
@@ -133,17 +171,20 @@ def pushImage(dockerImageName, sshHost, sshIdentityFile, sshPort):
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
             sshHost,
-            "docker rm -f docker-push-ssh-registry"
+            "sh -l -c \"docker rm -f docker-push-ssh-registry\""
         ]).execute()
 
         Command("docker", [
             "rm", "-f", "docker-push-ssh-tunnel"
         ]).environment_dict(os.environ).execute()
 
-        Command("docker", [
-            "image", "rm",
-            "localhost:5000/" + dockerImageName
-        ]).environment_dict(os.environ).execute()
+        for dockerImageTag in dockerImageTagList:
+            Command("docker", [
+                "image", "rm",
+                "localhost:5000/{0}".format(dockerImageTag)
+            ]).environment_dict(os.environ).execute()
+
+    return True
 
 
 def main():
@@ -153,7 +194,8 @@ def main():
 
     parser.add_argument("ssh_host", help="Host to push docker image to. (ex. username@myhost.com)")
 
-    parser.add_argument("docker_image", help="Docker image name to push.")
+    parser.add_argument("docker_image", nargs='+',
+                        help="Docker image tag(s) to push. Specify one or more separated by spaces.")
 
     parser.add_argument("-i", "--ssh-identity-file", type=str,
                         help="[required] Path to the ssh identity file on your local host. "
@@ -169,7 +211,10 @@ def main():
 
     print("[REQUIRED] Ensure localhost:5000 is added to your insecure registries.")
 
-    pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, args.ssh_port)
+    success = pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, args.ssh_port)
+
+    if not success:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
