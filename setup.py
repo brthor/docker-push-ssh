@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="docker-push-ssh",
-    version="0.1.4",
+    version="0.1.5",
     author="Bryan Thornbury",
     author_email="bryan@coherenceapi.com",
     description="Push local docker images to your remote servers via ssh without the hassle.",
