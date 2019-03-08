@@ -17,6 +17,7 @@ import socket
 import sys
 import time
 import urllib2
+import httplib
 
 from command import Command
 
@@ -39,7 +40,7 @@ def waitForSshTunnelInit(retries=20, delay=1.0):
 
         try:
             response = urllib2.urlopen("http://localhost:5000/v2/", timeout=5)
-        except (socket.error, urllib2.URLError):
+        except (socket.error, urllib2.URLError, httplib.BadStatusLine):
             continue
 
         if response.getcode() == 200:
