@@ -1,6 +1,6 @@
 # docker-push-ssh
 [![PyPI version](https://badge.fury.io/py/docker-push-ssh.svg)](https://pypi.org/project/docker-push-ssh)
-[![Build Status](https://travis-ci.org/CoherenceApi/docker-push-ssh.svg?branch=master)](https://travis-ci.org/CoherenceApi/docker-push-ssh)
+[![Build Status](https://travis-ci.org/brthor/docker-push-ssh.svg?branch=master)](https://travis-ci.org/CoherenceApi/docker-push-ssh)
 
 Push docker images from your local machine to remote servers without the hassle.
 
