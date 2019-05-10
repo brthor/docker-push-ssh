@@ -53,6 +53,9 @@ optional arguments:
   -p SSH_PORT, --ssh-port SSH_PORT
                         [optional] Port on ssh host to connect to. (Default is
                         22)
+  -r REGISTRY_PORT, --registry-port REGISTRY_PORT
+                        [optional] Remote registry port on ssh host to forward
+                        to. (Default is 5000)
 ```
 
 ## Examples

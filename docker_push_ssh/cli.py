@@ -49,7 +49,7 @@ def waitForSshTunnelInit(retries=20, delay=1.0):
     return False
 
 
-def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort):
+def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, registryPort):
     # Setup remote docker registry
     print("Setting up secure private registry... ")
     registryCommandResult = Command("ssh", [
@@ -80,7 +80,7 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort):
             "brthornbury/docker-alpine-ssh",
             "ssh",
             "-N",
-            "-L", "*:5000:localhost:5000",
+            "-L", "*:5000:localhost:{0}".format(registryPort),
             "-i", "/etc/ssh_key_file",
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
@@ -152,8 +152,8 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort):
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
                 sshHost,
-                "sh -l -c \"docker pull " + "localhost:5000/{0}".format(dockerImageTag) +
-                " && docker tag localhost:5000/{0} {0}\"".format(dockerImageTag)
+                "sh -l -c \"docker pull " + "localhost:{1}/{0}".format(dockerImageTag, registryPort) +
+                " && docker tag localhost:{1}/{0} {0}\"".format(dockerImageTag, registryPort)
             ]).execute()
 
             if pullDockerImageCommandResult.failed():
@@ -204,6 +204,9 @@ def main():
 
     parser.add_argument("-p", "--ssh-port", type=str, help="[optional] Port on ssh host to connect to. (Default is 22)", default="22")
 
+    parser.add_argument("-r", "--registry-port", type=str,
+                        help="[optional] Remote registry port on ssh host to forward to. (Default is 5000)", default="5000")
+
     args = parser.parse_args()
 
     assert args.ssh_identity_file is not None
@@ -212,7 +215,8 @@ def main():
 
     print("[REQUIRED] Ensure localhost:5000 is added to your insecure registries.")
 
-    success = pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, args.ssh_port)
+    success = pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, args.ssh_port,
+                        args.registry_port)
 
     if not success:
         sys.exit(1)
