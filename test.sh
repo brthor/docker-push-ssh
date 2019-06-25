@@ -41,8 +41,8 @@ ssh  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22 root@${ho
 failResult2="$?"
 set -e
 
-[ "$failResult1" = "0" ]
-[ "$failResult2" = "0" ]
+[ "$failResult1" != "0" ]
+[ "$failResult2" != "0" ]
 
 docker-push-ssh -i ./emptykey -p 22 root@${hostIp} ${image1} ${image2}
 
