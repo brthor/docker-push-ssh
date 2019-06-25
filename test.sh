@@ -3,7 +3,7 @@
 set -e
 set -x
 
-# echo '{"insecure-registries": ["localhost:5000"]}' | sudo tee /etc/docker/daemon.json
+echo '{"insecure-registries": ["localhost:5000"]}' | sudo tee /etc/docker/daemon.json
 sudo service docker stop
 sudo service docker start
 
@@ -32,6 +32,8 @@ mkdir /tmp/${image2}
     && docker build -t ${image2} .)
 
 echo "" > ./emptykey
+
+ssh  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22 root@${hostIp} 'sh -l -c "docker run "'"${image1}"
 
 docker-push-ssh -i ./emptykey -p 22 root@${hostIp} ${image1} ${image2}
 
