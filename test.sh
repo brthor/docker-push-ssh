@@ -3,7 +3,7 @@
 set -e
 set -x
 
-echo '{"insecure-registries": ["localhost:5000"]}' | sudo tee /etc/docker/daemon.json
+# echo '{"insecure-registries": ["localhost:5000"]}' | sudo tee /etc/docker/daemon.json
 sudo service docker stop
 sudo service docker start
 
