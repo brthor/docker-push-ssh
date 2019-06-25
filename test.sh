@@ -33,7 +33,9 @@ mkdir /tmp/${image2}
 
 echo "" > ./emptykey
 
-ssh  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22 root@${hostIp} 'sh -l -c "docker run "'"${image1}"
+ssh  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22 root@${hostIp} 'sh -l -c "docker run "'"${image1}" 2> /dev/null
+
+[ "$?" = "0" ]
 
 docker-push-ssh -i ./emptykey -p 22 root@${hostIp} ${image1} ${image2}
 
