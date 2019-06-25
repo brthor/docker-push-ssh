@@ -35,9 +35,14 @@ echo "" > ./emptykey
 
 set +e
 ssh  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22 root@${hostIp} 'sh -l -c "docker run "'"${image1}"
+failResult1="$?"
+
+ssh  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22 root@${hostIp} 'sh -l -c "docker run "'"${image2}"
+failResult2="$?"
 set -e
 
-[ "$?" = "0" ]
+[ "$failResult1" = "0" ]
+[ "$failResult2" = "0" ]
 
 docker-push-ssh -i ./emptykey -p 22 root@${hostIp} ${image1} ${image2}
 
