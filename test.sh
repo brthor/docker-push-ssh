@@ -9,7 +9,7 @@ sudo service docker start
 
 docker run --name docker-dind-sshd --privileged -d brthornbury/docker-dind-sshd --storage-driver=overlay
 hostIp=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' docker-dind-sshd)
-echo hostIp
+echo $hostIp
 
 python setup.py sdist
 pip install dist/*.tar.gz
@@ -20,7 +20,7 @@ mkdir /tmp/${image1}
 (cd /tmp/${image1} \
     && echo "FROM alpine" >> ./Dockerfile \
     && echo "RUN touch /etc/${image1}" >> ./Dockerfile \
-    && echo "CMD echo ${image1}" >> ./Dockerfile \
+    && echo "CMD echo out-${image1}" >> ./Dockerfile \
     && docker build -t ${image1} .)
 
 image2="e294fca67f674bda84013057fd48fb62"
@@ -28,7 +28,7 @@ mkdir /tmp/${image2}
 (cd /tmp/${image2} \
     && echo "FROM alpine" >> ./Dockerfile \
     && echo "RUN touch /etc/${image2}" >> ./Dockerfile \
-    && echo "CMD echo ${image2}" >> ./Dockerfile \
+    && echo "CMD echo out-${image2}" >> ./Dockerfile \
     && docker build -t ${image2} .)
 
 echo "" > ./emptykey
