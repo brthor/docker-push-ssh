@@ -235,7 +235,7 @@ def main():
 
     print("[REQUIRED] Ensure localhost:5000 is added to your insecure registries.")
 
-    success = pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, args.ssh_port)
+    success = pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, args.ssh_port, args.prime)
 
     if not success:
         sys.exit(1)
