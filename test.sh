@@ -44,7 +44,7 @@ set -e
 [ "$failResult1" != "0" ]
 [ "$failResult2" != "0" ]
 
-docker-push-ssh -i ./emptykey -p 22 root@${hostIp} ${image1} ${image2}
+docker-push-ssh --prime alpine -i ./emptykey -p 22 root@${hostIp} ${image1} ${image2}
 
 ssh  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22 root@${hostIp} 'sh -l -c "docker run "'"${image1}"
 ssh  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22 root@${hostIp} 'sh -l -c "docker run "'"${image2}"
