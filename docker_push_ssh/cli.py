@@ -59,7 +59,7 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages
         "-o", "UserKnownHostsFile=/dev/null",
         sshHost,
         "sh -l -c \"docker run -d -v /etc/docker-push-ssh/registry:/var/lib/registry " +
-        "--name docker-push-ssh-registry -p 127.0.0.1:5000:5000 registry\""
+        "--name docker-push-ssh-registry -p 127.0.0.1:{0}:5000 registry\"".format(registryPort)
     ]).execute()
 
     if registryCommandResult.failed():
