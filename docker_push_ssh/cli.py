@@ -228,7 +228,7 @@ def main():
     parser.add_argument("-r", "--registry-port", type=str,
                         help="[optional] Remote registry port on ssh host to forward to. (Default is 5000)", default="5000")
 
-    parser.add_argument("--prime", help="[optional][list] Base images with which to prime the registry from the remote host. (docker pull is performed on the remote host)", action="append")
+    parser.add_argument("--prime-image", help="[optional] [list] Base images with which to prime the registry from the remote host. Docker pull is performed on the remote host.", action="append")
 
     args = parser.parse_args()
 
@@ -239,7 +239,7 @@ def main():
     print("[REQUIRED] Ensure localhost:5000 is added to your insecure registries.")
 
     success = pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, 
-                        args.ssh_port, args.prime, args.registry_port)
+                        args.ssh_port, args.prime_image, args.registry_port)
 
     if not success:
         sys.exit(1)
