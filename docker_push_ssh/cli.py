@@ -122,7 +122,7 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages
                 "-o", "UserKnownHostsFile=/dev/null",
                 sshHost,
                 "sh -l -c \"docker pull {0}".format(primeImage) +
-                " && docker tag {0} localhost:5000/{0} && docker push localhost:5000/{0}\"".format(primeImage)
+                " && docker tag {0} localhost:{1}/{0} && docker push localhost:{1}/{0}\"".format(primeImage, registryPort)
             ]).execute()
 
             if primingCommand.failed():
