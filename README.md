@@ -1,6 +1,6 @@
 # docker-push-ssh
 [![PyPI version](https://badge.fury.io/py/docker-push-ssh.svg)](https://pypi.org/project/docker-push-ssh)
-[![Build Status](https://travis-ci.org/CoherenceApi/docker-push-ssh.svg?branch=master)](https://travis-ci.org/CoherenceApi/docker-push-ssh)
+[![Build Status](https://travis-ci.org/brthor/docker-push-ssh.svg?branch=master)](https://travis-ci.org/brthor/docker-push-ssh)
 
 Push docker images from your local machine to remote servers without the hassle.
 
@@ -32,7 +32,8 @@ tunnel at `localhost:5000` to the temporary registry on your remote host, withou
 
 ```bash
 $ docker-push-ssh --help
-usage: docker-push-ssh [-h] [-i SSH_IDENTITY_FILE] [-p SSH_PORT]
+usage: cli.py [-h] [-i SSH_IDENTITY_FILE] [-p SSH_PORT] [-r REGISTRY_PORT]
+              [--prime-image PRIME_IMAGE]
               ssh_host docker_image [docker_image ...]
 
 A utility to securely push a docker image from your local host to a remote
@@ -53,6 +54,13 @@ optional arguments:
   -p SSH_PORT, --ssh-port SSH_PORT
                         [optional] Port on ssh host to connect to. (Default is
                         22)
+  -r REGISTRY_PORT, --registry-port REGISTRY_PORT
+                        [optional] Remote registry port on ssh host to forward
+                        to. (Default is 5000)
+  --prime-image PRIME_IMAGE
+                        [optional] [list] Base images with which to prime the
+                        registry from the remote host. Docker pull is
+                        performed on the remote host.
 ```
 
 ## Examples
