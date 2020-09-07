@@ -84,3 +84,4 @@ Now the `testimage` will be present on your server.
 ## Caveats
 
 1. SSH password authentication is not supported. Only key files.
+2. Password-protected SSH keys may not be supported. You can generate a temporary, non-protected key using `ssh-keygen -P "" -f /tmp/my-tmpkey`
