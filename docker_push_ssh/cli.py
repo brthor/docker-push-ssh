@@ -221,7 +221,7 @@ def main():
 
     parser.add_argument("-i", "--ssh-identity-file", type=str,
                         help="[required] Path to the ssh identity file on your local host. "
-                             "Required, password auth not supported.")
+                             "Required, password auth not supported. (ex. ~/.ssh/id_rsa)")
 
     parser.add_argument("-p", "--ssh-port", type=str, help="[optional] Port on ssh host to connect to. (Default is 22)", default="22")
 
