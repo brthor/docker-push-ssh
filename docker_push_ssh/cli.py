@@ -38,12 +38,16 @@ def waitForSshTunnelInit(retries=20, delay=1.0):
     for _ in range(retries):
         time.sleep(delay)
 
-        try:
-            response = urllib2.urlopen("http://localhost:5000/v2/", timeout=5)
-        except (socket.error, urllib2.URLError, httplib.BadStatusLine):
-            continue
-
-        if response.getcode() == 200:
+        sshCheckCommandResult = Command("docker", [
+            "exec",
+            "docker-push-ssh-tunnel",
+            "wget",
+            "-O", "/dev/null",
+            "-q",
+            "http://localhost:5000/v2"
+        ]).environment_dict(os.environ).execute()
+        
+        if not sshCheckCommandResult.failed():
             return True
 
     return False
