@@ -38,7 +38,7 @@ class Command(object):
         return self
 
     def environment_dict(self, env_dict):
-        for key, value in env_dict.iteritems():
+        for key, value in env_dict.items():
             self.environment_variables[key] = value
         return self
 
