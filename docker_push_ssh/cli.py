@@ -49,24 +49,34 @@ def waitForSshTunnelInit(retries=20, delay=1.0):
     return False
 
 
-def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages, registryPort):
-    # Setup remote docker registry
-    print("Setting up secure private registry... ")
-    registryCommandResult = Command("ssh", [
-        "-i", sshIdentityFile,
-        "-p", sshPort,
-        "-o", "StrictHostKeyChecking=no",
-        "-o", "UserKnownHostsFile=/dev/null",
-        sshHost,
-        "sh -l -c \"docker run -d -v /etc/docker-push-ssh/registry:/var/lib/registry " +
-        "--name docker-push-ssh-registry -p 127.0.0.1:{0}:5000 registry\"".format(registryPort)
-    ]).execute()
+def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages, registryPort, registry):
+    if registry == "localhost":
+    	# Setup remote docker registry
+    	print("Setting up secure private registry... ")
+       	registryCommandResult = Command("ssh", [
+       	"-i", sshIdentityFile,
+       	"-p", sshPort,
+       	"-o", "StrictHostKeyChecking=no",
+       	"-o", "UserKnownHostsFile=/dev/null",
+       	sshHost,
+       	"sh -l -c \"docker run -d -v /etc/docker-push-ssh/registry:/var/lib/registry " +
+       	"--name docker-push-ssh-registry -p 127.0.0.1:{0}:5000 registry\"".format(registryPort)
+   	]).execute()
 
-    if registryCommandResult.failed():
-        print("ERROR")
-        print(registryCommandResult.stdout)
-        print(registryCommandResult.stderr)
-        return False
+        if registryCommandResult.failed():
+    	    print("ERROR")
+    	    print(registryCommandResult.stdout)
+    	    print(registryCommandResult.stderr)
+            print("Cleanup the registry")
+            Command("ssh", [
+                "-i", sshIdentityFile,
+                "-p", sshPort,
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "UserKnownHostsFile=/dev/null",
+                sshHost,
+                "sh -l -c \"docker rm -f docker-push-ssh-registry\""
+                ]).execute()
+    	    return False
 
     try:
         # Establish ssh tunnel
@@ -75,7 +85,7 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages
         sshTunnelCommandResult = Command("docker", [
             "run", "-d",
             "--name", "docker-push-ssh-tunnel",
-            "-p", "127.0.0.1:5000:5000",
+            "-p", "0.0.0.0:5000:5000",
             "-v", "{0}:/etc/ssh_key_file".format(sshIdentityFile),
             "brthornbury/docker-alpine-ssh",
             "ssh",
@@ -136,7 +146,7 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages
             tagCommandResult = Command("docker", [
                 "tag",
                 dockerImageTag,
-                "localhost:5000/{0}".format(dockerImageTag)
+                "{2}:{1}/{0}".format(dockerImageTag, registryPort, registry)
             ]).environment_dict(os.environ).execute()
 
             if tagCommandResult.failed():
@@ -149,7 +159,7 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages
         for dockerImageTag in dockerImageTagList:
             pushDockerImageCommandResult = Command("docker", [
                 "push",
-                "localhost:5000/{0}".format(dockerImageTag)
+                "{2}:{1}/{0}".format(dockerImageTag, registryPort, registry)
             ]).environment_dict(os.environ).execute()
 
             if pushDockerImageCommandResult.failed():
@@ -164,37 +174,39 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages
                 return False
 
             print("Pushed Image {0} Successfully...".format(dockerImageTag))
+ 
+        if registry == "localhost":
+        	print("Pulling and Retagging Image on remote host...")
+        	for dockerImageTag in dockerImageTagList:
+            		pullDockerImageCommandResult = Command("ssh", [
+                	"-i", sshIdentityFile,
+                	"-p", sshPort,
+                	"-o", "StrictHostKeyChecking=no",
+                	"-o", "UserKnownHostsFile=/dev/null",
+                	sshHost,
+                	"sh -l -c \"docker pull " + "localhost:{1}/{0}".format(dockerImageTag, registryPort) +
+                	" && docker tag localhost:{1}/{0} {0}\"".format(dockerImageTag, registryPort)
+            		]).execute()
 
-        print("Pulling and Retagging Image on remote host...")
-        for dockerImageTag in dockerImageTagList:
-            pullDockerImageCommandResult = Command("ssh", [
-                "-i", sshIdentityFile,
-                "-p", sshPort,
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
-                sshHost,
-                "sh -l -c \"docker pull " + "localhost:{1}/{0}".format(dockerImageTag, registryPort) +
-                " && docker tag localhost:{1}/{0} {0}\"".format(dockerImageTag, registryPort)
-            ]).execute()
+            	if pullDockerImageCommandResult.failed():
+                	print("ERROR")
+                	print(pullDockerImageCommandResult.stdout)
+                	print(pullDockerImageCommandResult.stderr)
+                	return False
 
-            if pullDockerImageCommandResult.failed():
-                print("ERROR")
-                print(pullDockerImageCommandResult.stdout)
-                print(pullDockerImageCommandResult.stderr)
-                return False
-
-            print("Pulled Image {0} Successfully...".format(dockerImageTag))
+            	print("Pulled Image {0} Successfully...".format(dockerImageTag))
 
     finally:
-        print("Cleaning up...")
-        Command("ssh", [
-            "-i", sshIdentityFile,
-            "-p", sshPort,
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null",
-            sshHost,
-            "sh -l -c \"docker rm -f docker-push-ssh-registry\""
-        ]).execute()
+        if registry == "localhost":
+        	print("Cleaning up...")
+        	Command("ssh", [
+            	"-i", sshIdentityFile,
+            	"-p", sshPort,
+            	"-o", "StrictHostKeyChecking=no",
+            	"-o", "UserKnownHostsFile=/dev/null",
+            	sshHost,
+            	"sh -l -c \"docker rm -f docker-push-ssh-registry\""
+        	]).execute()
 
         Command("docker", [
             "rm", "-f", "docker-push-ssh-tunnel"
@@ -224,7 +236,9 @@ def main():
                              "Required, password auth not supported. (ex. ~/.ssh/id_rsa)")
 
     parser.add_argument("-p", "--ssh-port", type=str, help="[optional] Port on ssh host to connect to. (Default is 22)", default="22")
-
+   
+    parser.add_argument("-rr", "--registry", type=str,
+                        help="[optional] Remote registry name. this will skip registry creation remotely", default="localhost")
     parser.add_argument("-r", "--registry-port", type=str,
                         help="[optional] Remote registry port on ssh host to forward to. (Default is 5000)", default="5000")
 
@@ -239,7 +253,7 @@ def main():
     print("[REQUIRED] Ensure localhost:5000 is added to your insecure registries.")
 
     success = pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, 
-                        args.ssh_port, args.prime_image, args.registry_port)
+                        args.ssh_port, args.prime_image, args.registry_port, args.registry)
 
     if not success:
         sys.exit(1)

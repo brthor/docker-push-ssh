@@ -27,6 +27,10 @@ Tested on OS X with "Docker for Mac".
 Adding `localhost:5000` to your client's insecure registries is inconvenient but a side-effect of docker's design.
 It only needs to be done once from each machine using `docker-push-ssh`. This allows the tool to push through the ssh
 tunnel at `localhost:5000` to the temporary registry on your remote host, without needing ssl certificates for your server.
+If the remote registry already exists then update /etc/hosts/ with the remote registry name to 127.0.0.1 and add the
+same to host docker insecure registries. An exmaple:
+cat /etc/hosts
+127.0.0.1 localhost remote-private-registry
 
 ## Usage:
 
@@ -54,6 +58,8 @@ optional arguments:
   -p SSH_PORT, --ssh-port SSH_PORT
                         [optional] Port on ssh host to connect to. (Default is
                         22)
+  -rr REGISTRY, --registry REGISTRY
+                        [optional] if the registry already exists remotely 
   -r REGISTRY_PORT, --registry-port REGISTRY_PORT
                         [optional] Remote registry port on ssh host to forward
                         to. (Default is 5000)
