@@ -15,6 +15,7 @@ import argparse
 import os
 import socket
 import sys
+import base64
 import time
 import urllib2
 import httplib
@@ -34,12 +35,15 @@ def getLocalIp():
     return localIp
 
 
-def waitForSshTunnelInit(retries=20, delay=1.0):
+def waitForSshTunnelInit(url, base64string=None, retries=20, delay=1.0):
     for _ in range(retries):
         time.sleep(delay)
-
         try:
-            response = urllib2.urlopen("http://localhost:5000/v2/", timeout=5)
+            request = urllib2.Request(url)
+            if base64string is not None:
+              request.add_header("Authorization", "Basic %s" % base64string)
+            response = urllib2.urlopen(request, timeout=5)
+            print response
         except (socket.error, urllib2.URLError, httplib.BadStatusLine):
             continue
 
@@ -49,7 +53,7 @@ def waitForSshTunnelInit(retries=20, delay=1.0):
     return False
 
 
-def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages, registryPort, registry):
+def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages, registryPort, registry, userpass):
     if registry == "localhost":
     	# Setup remote docker registry
     	print("Setting up secure private registry... ")
@@ -105,8 +109,24 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages
             return False
 
         print("Waiting for SSH Tunnel Initialization...")
+        if userpass is not None:
+        	creds=userpass.split(":", 1)
+        	dockerLogingCommandResult = Command("docker", [
+                "login", "-u={0}".format(creds[0]),
+                "-p={0}".format(creds[1]), "{0}:{1}".format(registry, registryPort)
+                ]).environment_dict(os.environ).execute() 
+                base64string = base64.encodestring('%s:%s' % (creds[0], creds[1])).replace('\n', '')
+                if dockerLogingCommandResult.failed():
+              		print("ERROR")
+              		print(dockerLogingCommandResult.stdout)
+              		print(dockerLogingCommandResult.stderr)
+              		return False
+        else:
+        	base64string = None
 
-        if not waitForSshTunnelInit():
+        url="http://%s:%s/v2" % (registry, registryPort)
+
+        if not waitForSshTunnelInit(url, base64string):
             print("ERROR")
             print("SSH Tunnel failed to initialize.")
 
@@ -132,7 +152,7 @@ def pushImage(dockerImageTagList, sshHost, sshIdentityFile, sshPort, primeImages
                 "-o", "UserKnownHostsFile=/dev/null",
                 sshHost,
                 "sh -l -c \"docker pull {0}".format(primeImage) +
-                " && docker tag {0} localhost:{1}/{0} && docker push localhost:{1}/{0}\"".format(primeImage, registryPort)
+                " && docker tag {0} {2}:{1}/{0} && docker push {2}:{1}/{0}\"".format(primeImage, registryPort, registry)
             ]).execute()
 
             if primingCommand.failed():
@@ -236,7 +256,9 @@ def main():
                              "Required, password auth not supported. (ex. ~/.ssh/id_rsa)")
 
     parser.add_argument("-p", "--ssh-port", type=str, help="[optional] Port on ssh host to connect to. (Default is 22)", default="22")
-   
+ 
+    parser.add_argument("-u", "--userpass", type=str, help="[optional] docker registry username:password")
+    
     parser.add_argument("-rr", "--registry", type=str,
                         help="[optional] Remote registry name. this will skip registry creation remotely", default="localhost")
     parser.add_argument("-r", "--registry-port", type=str,
@@ -253,7 +275,7 @@ def main():
     print("[REQUIRED] Ensure localhost:5000 is added to your insecure registries.")
 
     success = pushImage(args.docker_image, args.ssh_host, sshIdentityFileAbsolutePath, 
-                        args.ssh_port, args.prime_image, args.registry_port, args.registry)
+                        args.ssh_port, args.prime_image, args.registry_port, args.registry, args.userpass)
 
     if not success:
         sys.exit(1)
